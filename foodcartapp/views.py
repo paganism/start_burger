@@ -2,7 +2,12 @@ from django.http import JsonResponse
 from django.templatetags.static import static
 import json
 from .models import Order, OrderItem
-
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
+from rest_framework.status import (
+    HTTP_200_OK
+)
 
 from .models import Product
 
@@ -59,18 +64,23 @@ def product_list_api(request):
     })
 
 
+@permission_classes((AllowAny,))
+@api_view(["POST"])
 def register_order(request):
-    # TODO это лишь заглушка
-    print(json.loads(request.body))
-    if request.method == 'POST':
-        order = json.loads(request.body)
+    order = request.data
+    order_object = Order.objects.create(
+        customer_first_name=order['firstname'],
+        customer_last_name=order['lastname'],
+        address=order['address'],
+        phonenumber=order['phonenumber']
+    )
 
-        order_object = Order.objects.create(customer_first_name=order['firstname'], customer_last_name=order['lastname'], address=order['address'], phonenumber=order['phonenumber'])
+    for item in order['products']:
+        order_item = OrderItem.objects.create(
+            order=order_object,
+            product_id=item['product'],
+            quantity=item['quantity']
+        )
+        order_item.save()
 
-        # order_items = order['products']
-
-        for item in order['products']:
-            order_item = OrderItem.objects.create(order=order_object, product_id=item['product'], quantity=item['quantity'])
-            order_item.save()
-
-    return JsonResponse({})
+    return Response(data={}, status=HTTP_200_OK)

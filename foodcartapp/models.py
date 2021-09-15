@@ -1,7 +1,6 @@
 from django.db import models
-from django.core.validators import MinValueValidator
-from phonenumber_field.modelfields import PhoneNumberField
 from django.core.validators import MinValueValidator, MaxValueValidator
+from phonenumber_field.modelfields import PhoneNumberField
 
 
 class Restaurant(models.Model):
@@ -170,8 +169,8 @@ class OrderItem(models.Model):
     )
 
     class Meta:
-            verbose_name = 'Элемент заказа'
-            verbose_name_plural = 'Элементы заказа'
+        verbose_name = 'Элемент заказа'
+        verbose_name_plural = 'Элементы заказа'
 
     def __str__(self):
         return f"\
