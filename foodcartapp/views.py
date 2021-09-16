@@ -6,7 +6,8 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from rest_framework.status import (
-    HTTP_200_OK
+    HTTP_200_OK,
+    HTTP_400_BAD_REQUEST
 )
 
 from .models import Product
@@ -74,6 +75,36 @@ def register_order(request):
         address=order['address'],
         phonenumber=order['phonenumber']
     )
+
+    # Продукты должны присутствовать в наборе данных
+    try:
+        order['products']
+    except KeyError:
+        return Response(
+            {'error': 'there are no products'},
+            status=HTTP_400_BAD_REQUEST
+        )
+
+    # Продукты - не пустой список
+    if isinstance(order['products'], list) and len(order['products']) == 0:
+        return Response(
+            {'error': 'products are empty'},
+            status=HTTP_400_BAD_REQUEST
+        )
+
+    # Продукты - это не null
+    if order['products'] is None:
+        return Response(
+            {'error': 'products are null'},
+            status=HTTP_400_BAD_REQUEST
+        )
+
+    # Продукты - это список
+    if not isinstance(order['products'], list):
+        return Response(
+            {'error': 'products key is not presented or not list'},
+            status=HTTP_400_BAD_REQUEST
+        )
 
     for item in order['products']:
         order_item = OrderItem.objects.create(
