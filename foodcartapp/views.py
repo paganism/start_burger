@@ -1,6 +1,6 @@
 from django.http import JsonResponse
 from django.templatetags.static import static
-import json
+import phonenumbers
 from .models import Order, OrderItem
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -11,6 +11,8 @@ from rest_framework.status import (
 )
 
 from .models import Product
+from django.core.exceptions import ObjectDoesNotExist
+from django.db import transaction
 
 
 def banners_list_api(request):
@@ -65,16 +67,62 @@ def product_list_api(request):
     })
 
 
+@transaction.atomic
 @permission_classes((AllowAny,))
 @api_view(["POST"])
 def register_order(request):
+
     order = request.data
-    order_object = Order.objects.create(
-        customer_first_name=order['firstname'],
-        customer_last_name=order['lastname'],
-        address=order['address'],
-        phonenumber=order['phonenumber']
-    )
+
+    # Нет ключей order
+    if not 'firstname' in order \
+        and not 'lastname' in order \
+            and not 'phonenumber' in order \
+                and not 'address' in order:
+        return Response(
+            {'error': 'there are no order data'},
+            status=HTTP_400_BAD_REQUEST
+        )
+
+    # Все ключи не null
+    if order.get('firstname') is None \
+        and order.get('lastname') is None \
+            and order.get('address') is None \
+            and order.get('phonenumber') is None:
+        return Response(
+            {'error': 'firstname, lastname, \
+                phonenumber, address cannot be empty'},
+            status=HTTP_400_BAD_REQUEST
+        )
+
+    # firstname не список
+    if not isinstance(order['firstname'], str):
+        return Response(
+            {'error': 'firstname Not a valid string'},
+            status=HTTP_400_BAD_REQUEST
+        )
+
+    # firstname не пустое
+    if order['firstname'] is None:
+        return Response(
+            {'error': 'firstname cannot be empty'},
+            status=HTTP_400_BAD_REQUEST
+        )
+
+    # phonenumber не пустой
+    if not order['phonenumber']:
+        return Response(
+            {'error': 'phonenumber cannot be empty'},
+            status=HTTP_400_BAD_REQUEST
+        )
+
+    # phonenumber валиден
+    phonenumber = phonenumbers.parse(order['phonenumber'])
+    if not phonenumbers.is_valid_number(phonenumber):
+        return Response(
+            {'error': 'phonenumber is invalid'},
+            status=HTTP_400_BAD_REQUEST
+        )
 
     # Продукты должны присутствовать в наборе данных
     try:
@@ -105,6 +153,23 @@ def register_order(request):
             {'error': 'products key is not presented or not list'},
             status=HTTP_400_BAD_REQUEST
         )
+
+    # Проверка на существование products
+    for item in order['products']:
+        try:
+            OrderItem.objects.get(product_id=item['product'])
+        except ObjectDoesNotExist:
+            return Response(
+                {'error': 'product id not found'},
+                status=HTTP_400_BAD_REQUEST
+            )
+
+    order_object = Order.objects.create(
+        customer_first_name=order['firstname'],
+        customer_last_name=order['lastname'],
+        address=order['address'],
+        phonenumber=order['phonenumber']
+    )
 
     for item in order['products']:
         order_item = OrderItem.objects.create(
