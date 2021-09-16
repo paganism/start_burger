@@ -1,18 +1,13 @@
 from django.http import JsonResponse
 from django.templatetags.static import static
-import phonenumbers
+
 from .models import Order, OrderItem
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
-from rest_framework.status import (
-    HTTP_200_OK,
-    HTTP_400_BAD_REQUEST
-)
 
 from .models import Product
-from django.core.exceptions import ObjectDoesNotExist
-from django.db import transaction
+from rest_framework import serializers
+from phonenumber_field.serializerfields import PhoneNumberField
 
 
 def banners_list_api(request):
@@ -67,116 +62,49 @@ def product_list_api(request):
     })
 
 
-@transaction.atomic
-@permission_classes((AllowAny,))
+class OrderItemSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OrderItem
+        fields = ['product', 'quantity']
+
+    product = serializers.PrimaryKeyRelatedField(
+        queryset=Product.objects.all()
+    )
+    quantity = serializers.IntegerField()
+
+
+class OrderSerializer(serializers.ModelSerializer):
+    products = OrderItemSerializer(many=True, allow_empty=False)
+
+    class Meta:
+        model = Order
+        fields = [
+            'firstname', 'lastname', 'phonenumber',
+            'address', 'products'
+        ]
+
+    firstname = serializers.CharField(source='customer_first_name')
+    lastname = serializers.CharField(source='customer_last_name')
+    address = serializers.CharField()
+    phonenumber = PhoneNumberField()
+
+
 @api_view(["POST"])
 def register_order(request):
+    serializer = OrderSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)  # выкинет ValidationError
 
-    order = request.data
-
-    # Нет ключей order
-    if not 'firstname' in order \
-        and not 'lastname' in order \
-            and not 'phonenumber' in order \
-                and not 'address' in order:
-        return Response(
-            {'error': 'there are no order data'},
-            status=HTTP_400_BAD_REQUEST
-        )
-
-    # Все ключи не null
-    if order.get('firstname') is None \
-        and order.get('lastname') is None \
-            and order.get('address') is None \
-            and order.get('phonenumber') is None:
-        return Response(
-            {'error': 'firstname, lastname, \
-                phonenumber, address cannot be empty'},
-            status=HTTP_400_BAD_REQUEST
-        )
-
-    # firstname не список
-    if not isinstance(order['firstname'], str):
-        return Response(
-            {'error': 'firstname Not a valid string'},
-            status=HTTP_400_BAD_REQUEST
-        )
-
-    # firstname не пустое
-    if order['firstname'] is None:
-        return Response(
-            {'error': 'firstname cannot be empty'},
-            status=HTTP_400_BAD_REQUEST
-        )
-
-    # phonenumber не пустой
-    if not order['phonenumber']:
-        return Response(
-            {'error': 'phonenumber cannot be empty'},
-            status=HTTP_400_BAD_REQUEST
-        )
-
-    # phonenumber валиден
-    phonenumber = phonenumbers.parse(order['phonenumber'])
-    if not phonenumbers.is_valid_number(phonenumber):
-        return Response(
-            {'error': 'phonenumber is invalid'},
-            status=HTTP_400_BAD_REQUEST
-        )
-
-    # Продукты должны присутствовать в наборе данных
-    try:
-        order['products']
-    except KeyError:
-        return Response(
-            {'error': 'there are no products'},
-            status=HTTP_400_BAD_REQUEST
-        )
-
-    # Продукты - не пустой список
-    if isinstance(order['products'], list) and len(order['products']) == 0:
-        return Response(
-            {'error': 'products are empty'},
-            status=HTTP_400_BAD_REQUEST
-        )
-
-    # Продукты - это не null
-    if order['products'] is None:
-        return Response(
-            {'error': 'products are null'},
-            status=HTTP_400_BAD_REQUEST
-        )
-
-    # Продукты - это список
-    if not isinstance(order['products'], list):
-        return Response(
-            {'error': 'products key is not presented or not list'},
-            status=HTTP_400_BAD_REQUEST
-        )
-
-    # Проверка на существование products
-    for item in order['products']:
-        try:
-            OrderItem.objects.get(product_id=item['product'])
-        except ObjectDoesNotExist:
-            return Response(
-                {'error': 'product id not found'},
-                status=HTTP_400_BAD_REQUEST
-            )
-
-    order_object = Order.objects.create(
-        customer_first_name=order['firstname'],
-        customer_last_name=order['lastname'],
-        address=order['address'],
-        phonenumber=order['phonenumber']
+    order = Order.objects.create(
+        customer_first_name=serializer.validated_data['customer_first_name'],
+        customer_last_name=serializer.validated_data['customer_last_name'],
+        address=serializer.validated_data['address'],
+        phonenumber=serializer.validated_data['phonenumber']
     )
 
-    for item in order['products']:
-        order_item = OrderItem.objects.create(
-            order=order_object,
-            product_id=item['product'],
-            quantity=item['quantity']
-        )
-        order_item.save()
+    products_fields = serializer.validated_data['products']
+    products = [OrderItem(order=order, **fields) for fields in products_fields]
+    OrderItem.objects.bulk_create(products)
 
-    return Response(data={}, status=HTTP_200_OK)
+    return Response({
+        'order_id': order.id,
+    })
