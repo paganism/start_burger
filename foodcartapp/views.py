@@ -1,4 +1,3 @@
-from django.http import JsonResponse
 from django.templatetags.static import static
 
 from .models import Order, OrderItem
@@ -8,6 +7,7 @@ from rest_framework.response import Response
 from .models import Product
 from rest_framework import serializers
 from phonenumber_field.serializerfields import PhoneNumberField
+from django.http import JsonResponse
 
 
 def banners_list_api(request):
@@ -105,6 +105,4 @@ def register_order(request):
     products = [OrderItem(order=order, **fields) for fields in products_fields]
     OrderItem.objects.bulk_create(products)
 
-    return Response({
-        'order_id': order.id,
-    })
+    return Response(serializer.data, status=201)
