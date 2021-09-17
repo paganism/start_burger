@@ -8,6 +8,7 @@ from .models import Product
 from rest_framework import serializers
 from phonenumber_field.serializerfields import PhoneNumberField
 from django.http import JsonResponse
+from django.db import transaction
 
 
 def banners_list_api(request):
@@ -88,7 +89,7 @@ class OrderSerializer(serializers.ModelSerializer):
     address = serializers.CharField()
     phonenumber = PhoneNumberField()
 
-
+@transaction.atomic
 @api_view(["POST"])
 def register_order(request):
     serializer = OrderSerializer(data=request.data)
