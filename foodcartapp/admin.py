@@ -13,6 +13,7 @@ from .models import OrderItem
 from django.http import HttpResponseRedirect
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.encoding import iri_to_uri
+from django.conf import settings
 
 
 class RestaurantMenuItemInline(admin.TabularInline):
@@ -152,7 +153,7 @@ class OrderAdmin(admin.ModelAdmin):
         if "next" in request.GET and \
             url_has_allowed_host_and_scheme(
                 request.GET['next'],
-                ['127.0.0.1']):
+                settings.ALLOWED_HOSTS):
             return HttpResponseRedirect(iri_to_uri(request.GET['next']))
         else:
             return response
