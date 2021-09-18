@@ -140,8 +140,9 @@ class OrderAdmin(admin.ModelAdmin):
         'customer_first_name',
         'customer_last_name',
         'phonenumber',
+        'comment'
     ]
-    list_editable = ['status', ]
+    list_editable = ['status', 'comment', ]
     inlines = [
         OrderItemInline
     ]

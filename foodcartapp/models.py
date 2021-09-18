@@ -131,6 +131,9 @@ class OrderQuerySet(models.QuerySet):
             order_price=Sum(F('items__product__price') * F('items__quantity'))
         ).order_by('-id')
 
+    def not_processed_orders_with_price(self):
+        return self.orders_with_price().exclude(status='CLOSED')
+
 
 class Order(models.Model):
     STATUS_CHOICES = [
@@ -159,6 +162,12 @@ class Order(models.Model):
     )
     phonenumber = PhoneNumberField(
         verbose_name="Мобильный номер"
+    )
+    comment = models.TextField(
+        verbose_name='Комментарий',
+        max_length=200,
+        # null=True,
+        blank=True
     )
     objects = OrderQuerySet.as_manager()
 
