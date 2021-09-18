@@ -131,13 +131,17 @@ class OrderAdmin(admin.ModelAdmin):
         'customer_last_name',
         'address',
         'phonenumber',
+        'status',
     ]
     list_display = [
+        'id',
+        'status',
         'address',
         'customer_first_name',
         'customer_last_name',
         'phonenumber',
     ]
+    list_editable = ['status', ]
     inlines = [
         OrderItemInline
     ]
