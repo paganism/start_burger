@@ -89,6 +89,7 @@ class OrderSerializer(serializers.ModelSerializer):
     address = serializers.CharField()
     phonenumber = PhoneNumberField()
 
+
 @transaction.atomic
 @api_view(["POST"])
 def register_order(request):
@@ -102,7 +103,13 @@ def register_order(request):
         phonenumber=serializer.validated_data['phonenumber']
     )
     products_fields = serializer.validated_data['products']
-    products = [OrderItem(order=order, **fields) for fields in products_fields]
-    OrderItem.objects.bulk_create(products)
+
+    for product in products_fields:
+        OrderItem.objects.create(
+            order=order,
+            product=product['product'],
+            quantity=product['quantity'],
+            price=product['quantity'] * product['product'].price
+        )
 
     return Response(serializer.data, status=201)

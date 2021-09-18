@@ -10,6 +10,10 @@ from .models import RestaurantMenuItem
 from .models import Order
 from .models import OrderItem
 
+from django.http import HttpResponseRedirect
+from django.utils.http import url_has_allowed_host_and_scheme
+from django.utils.encoding import iri_to_uri
+
 
 class RestaurantMenuItemInline(admin.TabularInline):
     model = RestaurantMenuItem
@@ -48,7 +52,8 @@ class ProductAdmin(admin.ModelAdmin):
         'category',
     ]
     search_fields = [
-        # FIXME SQLite can not convert letter case for cyrillic words properly, so search will be buggy.
+        # FIXME SQLite can not convert letter case for
+        # cyrillic words properly, so search will be buggy.
         # Migration to PostgreSQL is necessary
         'name',
         'category__name',
@@ -110,13 +115,13 @@ class ProductAdmin(admin.ModelAdmin):
 
 
 @admin.register(ProductCategory)
-class ProductAdmin(admin.ModelAdmin):
+class ProductCategory(admin.ModelAdmin):
     pass
 
 
 class OrderItemInline(admin.TabularInline):
     model = OrderItem
-    extra = 1
+    extra = 0
 
 
 @admin.register(Order)
@@ -136,3 +141,13 @@ class OrderAdmin(admin.ModelAdmin):
     inlines = [
         OrderItemInline
     ]
+
+    def response_change(self, request, obj):
+        response = super(OrderAdmin, self).response_change(request, obj)
+        if "next" in request.GET and \
+            url_has_allowed_host_and_scheme(
+                request.GET['next'],
+                ['127.0.0.1']):
+            return HttpResponseRedirect(iri_to_uri(request.GET['next']))
+        else:
+            return response
