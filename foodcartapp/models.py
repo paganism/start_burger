@@ -151,11 +151,12 @@ class Order(models.Model):
     PAYMENT_CHOICES = [
         ('NON_CACHE', 'Электронно'),
         ('CACHE', 'Наличностью'),
+        ('NOT_SET', 'Не задан'),
     ]
     payment_method = models.CharField(
         max_length=20,
         choices=PAYMENT_CHOICES,
-        default='CACHE',
+        default='NOT_SET',
         verbose_name='Способ оплаты'
     )
     address = models.TextField(
@@ -182,6 +183,12 @@ class Order(models.Model):
     registrated_at = models.DateTimeField(default=timezone.now)
     called_at = models.DateTimeField(blank=True, null=True)
     delivered_at = models.DateTimeField(blank=True, null=True)
+    restaurant = models.ForeignKey(
+        Restaurant,
+        blank=True,
+        null=True,
+        on_delete=models.SET_NULL
+    )
     objects = OrderQuerySet.as_manager()
 
     class Meta:
@@ -190,6 +197,21 @@ class Order(models.Model):
 
     def __str__(self):
         return f"{self.id} {self.customer_first_name} {self.address}"
+
+    def get_available_restaurants_for_cart(order):
+        restaurants = []
+        for item in order.items.all():
+            item_restaurants = []
+            menu_items = RestaurantMenuItem.objects.filter(
+                product=item.product,
+                availability=True
+            )
+            for menu_item in menu_items:
+                item_restaurants.append(menu_item.restaurant)
+            if not restaurants:
+                restaurants += item_restaurants
+            restaurants = list(set(item_restaurants) & set(restaurants))
+        return restaurants
 
 
 class OrderItem(models.Model):
