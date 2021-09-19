@@ -15,6 +15,9 @@ from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.encoding import iri_to_uri
 from django.conf import settings
 
+from django.forms import Textarea
+from django.db import models
+
 
 class RestaurantMenuItemInline(admin.TabularInline):
     model = RestaurantMenuItem
@@ -136,6 +139,7 @@ class OrderAdmin(admin.ModelAdmin):
     ]
     list_display = [
         'id',
+        'payment_method',
         'status',
         'address',
         'customer_first_name',
@@ -143,7 +147,7 @@ class OrderAdmin(admin.ModelAdmin):
         'phonenumber',
         'comment'
     ]
-    list_editable = ['status', 'comment', ]
+    list_editable = ['status', 'comment', 'payment_method', ]
     inlines = [
         OrderItemInline
     ]
@@ -157,3 +161,7 @@ class OrderAdmin(admin.ModelAdmin):
             return HttpResponseRedirect(iri_to_uri(request.GET['next']))
         else:
             return response
+
+    formfield_overrides = {
+        models.TextField: {'widget': Textarea(attrs={'rows':3, 'cols':45})},
+    }

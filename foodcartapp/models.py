@@ -148,6 +148,16 @@ class Order(models.Model):
         default='NEW',
         verbose_name='Статус'
     )
+    PAYMENT_CHOICES = [
+        ('NON_CACHE', 'Электронно'),
+        ('CACHE', 'Наличностью'),
+    ]
+    payment_method = models.CharField(
+        max_length=20,
+        choices=PAYMENT_CHOICES,
+        default='CACHE',
+        verbose_name='Способ оплаты'
+    )
     address = models.TextField(
         max_length=100,
         verbose_name='Адрес доставки'
@@ -167,7 +177,6 @@ class Order(models.Model):
     comment = models.TextField(
         verbose_name='Комментарий',
         max_length=200,
-        # null=True,
         blank=True
     )
     registrated_at = models.DateTimeField(default=timezone.now)
