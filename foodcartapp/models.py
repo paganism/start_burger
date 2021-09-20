@@ -3,6 +3,12 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from phonenumber_field.modelfields import PhoneNumberField
 from django.db.models import Sum, F
 from django.utils import timezone
+from django.conf import settings
+from foodcartapp.utils import fetch_coordinates, parse_coordinates
+from geopy.distance import geodesic
+import json
+import requests
+from coordinates.models import Coordinates
 
 
 class Restaurant(models.Model):
@@ -20,6 +26,7 @@ class Restaurant(models.Model):
         max_length=50,
         blank=True,
     )
+    coordinates = models.JSONField(verbose_name='Координаты')
 
     class Meta:
         verbose_name = 'ресторан'
@@ -198,9 +205,9 @@ class Order(models.Model):
     def __str__(self):
         return f"{self.id} {self.customer_first_name} {self.address}"
 
-    def get_available_restaurants_for_cart(order):
+    def get_available_restaurants_for_cart(self):
         restaurants = []
-        for item in order.items.all():
+        for item in self.items.all():
             item_restaurants = []
             menu_items = RestaurantMenuItem.objects.filter(
                 product=item.product,
@@ -212,6 +219,59 @@ class Order(models.Model):
                 restaurants += item_restaurants
             restaurants = list(set(item_restaurants) & set(restaurants))
         return restaurants
+
+    def get_distance_for_address(self, restaurant):
+        rest_long, rest_lat = parse_coordinates(restaurant.coordinates)
+
+        client_coordinates_obj = Coordinates.objects.filter(
+            address=self.address
+        )
+
+        if client_coordinates_obj.exists():
+            coordinates = client_coordinates_obj[0].coordinates
+            client_long, client_lat = parse_coordinates(coordinates)
+
+        else:
+            try:
+                client_long, client_lat = fetch_coordinates(
+                    settings.YA_API_KEY,
+                    self.address
+                )
+                Coordinates.objects.create(
+                    address=self.address,
+                    coordinates=json.dumps(
+                        {'long': client_long, 'lat': client_lat}
+                    )
+                )
+            except requests.exceptions.ReadTimeout:
+                return
+            except requests.exceptions.ConnectionError:
+                return
+            except requests.exceptions.HTTPError:
+                return
+
+        return round(
+            (geodesic((rest_lat, rest_long), (client_lat, client_long)).km), 2
+        )
+
+    def get_distance_for_order(self):
+
+        if self.restaurant:
+            return self.get_distance_for_address(self.restaurant)
+
+        avail_restaurants = self.get_available_restaurants_for_cart()
+
+        rest_distance = []
+
+        for restaurant in avail_restaurants:
+            distance = self.get_distance_for_address(restaurant)
+            rest_distance.append(
+                {
+                    'name': restaurant.name,
+                    'distance': distance
+                }
+            )
+        return sorted(rest_distance, key=lambda x: x['distance'])
 
 
 class OrderItem(models.Model):

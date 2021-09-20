@@ -35,12 +35,16 @@
         <td>{{item.address}}</td>
         <td>
           {% if item.restaurant %}
-              {{item.restaurant}}
+              {{item.restaurant}} - {{item.get_distance_for_order}} км
           {% else %}
             <details>
               <summary>Доступные рестораны</summary>
-                {% for rest in item.get_available_restaurants_for_cart %}
-                  {{rest.name}}
+                {% for restaurant in item.get_distance_for_order %}
+                    {% if restaurant.distance %}
+                      <p>{{restaurant.name}} - {{restaurant.distance}} км</p>
+                    {% else %}
+                      <p>{{restaurant.name}} - нет данных</p>
+                    {% endif %}
                 {% endfor %}
             </details>
           {% endif %}
