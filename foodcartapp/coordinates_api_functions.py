@@ -12,7 +12,7 @@ def fetch_coordinates(apikey, address):
     response = requests.get(base_url, params={
         "geocode": address,
         "apikey": apikey,
-        "format": "json",
+        "format": "json"
     })
     response.raise_for_status()
     found_places = response.json()['response']['GeoObjectCollection']['featureMember']

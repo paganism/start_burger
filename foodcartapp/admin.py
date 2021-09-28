@@ -135,7 +135,6 @@ class OrderAdmin(admin.ModelAdmin):
         'customer_last_name',
         'address',
         'phonenumber',
-        'status',
     ]
     list_display = [
         'id',
@@ -147,13 +146,16 @@ class OrderAdmin(admin.ModelAdmin):
         'phonenumber',
         'comment'
     ]
+    list_filter = [
+        'status',
+    ]
     list_editable = ['status', 'comment', 'payment_method', ]
     inlines = [
         OrderItemInline
     ]
 
     def response_change(self, request, obj):
-        response = super(OrderAdmin, self).response_change(request, obj)
+        response = super().response_change(request, obj)
         if "next" in request.GET and \
             url_has_allowed_host_and_scheme(
                 request.GET['next'],

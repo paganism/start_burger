@@ -4,7 +4,7 @@ from phonenumber_field.modelfields import PhoneNumberField
 from django.db.models import Sum, F
 from django.utils import timezone
 from django.conf import settings
-from foodcartapp.utils import fetch_coordinates, parse_coordinates
+from foodcartapp.coordinates_api_functions import fetch_coordinates, parse_coordinates
 from geopy.distance import geodesic
 import json
 import requests
@@ -89,7 +89,6 @@ class Product(models.Model):
     )
     description = models.TextField(
         'описание',
-        max_length=200,
         blank=True,
     )
 
@@ -137,7 +136,7 @@ class OrderQuerySet(models.QuerySet):
     def orders_with_price(self):
         return self.annotate(
             order_price=Sum(F('items__product__price') * F('items__quantity'))
-        ).order_by('-id')
+        )
 
     def not_processed_orders_with_price(self):
         return self.orders_with_price().exclude(status='CLOSED')
@@ -149,25 +148,26 @@ class Order(models.Model):
         ('IN_PROGRESS', 'В работе'),
         ('CLOSED', 'Завершён'),
     ]
-    status = models.CharField(
-        max_length=20,
-        choices=STATUS_CHOICES,
-        default='NEW',
-        verbose_name='Статус'
-    )
     PAYMENT_CHOICES = [
         ('NON_CACHE', 'Электронно'),
         ('CACHE', 'Наличностью'),
         ('NOT_SET', 'Не задан'),
     ]
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='NEW',
+        verbose_name='Статус',
+        db_index=True
+    )
     payment_method = models.CharField(
         max_length=20,
         choices=PAYMENT_CHOICES,
         default='NOT_SET',
-        verbose_name='Способ оплаты'
+        verbose_name='Способ оплаты',
+        db_index=True
     )
     address = models.TextField(
-        max_length=100,
         verbose_name='Адрес доставки'
     )
     customer_first_name = models.CharField(
@@ -180,21 +180,37 @@ class Order(models.Model):
         verbose_name='Фамилия'
     )
     phonenumber = PhoneNumberField(
-        verbose_name="Мобильный номер"
+        verbose_name='Мобильный номер',
+        db_index=True
     )
     comment = models.TextField(
         verbose_name='Комментарий',
-        max_length=200,
         blank=True
     )
-    registrated_at = models.DateTimeField(default=timezone.now)
-    called_at = models.DateTimeField(blank=True, null=True)
-    delivered_at = models.DateTimeField(blank=True, null=True)
+    registrated_at = models.DateTimeField(
+        default=timezone.now,
+        verbose_name='дата регистрации',
+        db_index=True
+    )
+    called_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name='время звонка',
+        db_index=True
+    )
+    delivered_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name='время доставки',
+        db_index=True
+    )
     restaurant = models.ForeignKey(
         Restaurant,
         blank=True,
         null=True,
-        on_delete=models.SET_NULL
+        on_delete=models.SET_NULL,
+        verbose_name='ресторан',
+        related_name='orders'
     )
     objects = OrderQuerySet.as_manager()
 
@@ -223,12 +239,12 @@ class Order(models.Model):
     def get_distance_for_address(self, restaurant):
         rest_long, rest_lat = parse_coordinates(restaurant.coordinates)
 
-        client_coordinates_obj = Coordinates.objects.filter(
+        client_coordinates_objects = Coordinates.objects.filter(
             address=self.address
         )
 
-        if client_coordinates_obj.exists():
-            coordinates = client_coordinates_obj[0].coordinates
+        if client_coordinates_objects.exists():
+            coordinates = client_coordinates_objects[0].coordinates
             client_long, client_lat = parse_coordinates(coordinates)
 
         else:
@@ -279,6 +295,7 @@ class OrderItem(models.Model):
         Order,
         related_name='items',
         on_delete=models.CASCADE,
+        verbose_name='заказ'
     )
     product = models.ForeignKey(
         Product,
@@ -292,12 +309,10 @@ class OrderItem(models.Model):
         validators=[MinValueValidator(1), MaxValueValidator(50)]
     )
     price = models.DecimalField(
-        'цена',
+        verbose_name='цена',
         max_digits=8,
         decimal_places=2,
         validators=[MinValueValidator(0)],
-        blank=True,
-        default=0
     )
 
     class Meta:

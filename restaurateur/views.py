@@ -100,5 +100,5 @@ def view_restaurants(request):
 def view_orders(request):
 
     return render(request, template_name='order_items.html', context={
-        'order_items': Order.objects.not_processed_orders_with_price()
+        'order_items': Order.objects.not_processed_orders_with_price().order_by('-id')
     })

@@ -142,4 +142,4 @@ REST_FRAMEWORK = {
     ],
 }
 
-YA_API_KEY = env('YA_API_KEY')
+YA_API_KEY = env('YA_API_KEY', '')

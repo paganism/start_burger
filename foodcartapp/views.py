@@ -64,6 +64,7 @@ def product_list_api(request):
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
+    
     class Meta:
         model = OrderItem
         fields = ['product', 'quantity']
@@ -75,7 +76,12 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 
 class OrderSerializer(serializers.ModelSerializer):
+
     products = OrderItemSerializer(many=True, allow_empty=False)
+    firstname = serializers.CharField(source='customer_first_name')
+    lastname = serializers.CharField(source='customer_last_name')
+    address = serializers.CharField()
+    phonenumber = PhoneNumberField()
 
     class Meta:
         model = Order
@@ -83,11 +89,6 @@ class OrderSerializer(serializers.ModelSerializer):
             'firstname', 'lastname', 'phonenumber',
             'address', 'products'
         ]
-
-    firstname = serializers.CharField(source='customer_first_name')
-    lastname = serializers.CharField(source='customer_last_name')
-    address = serializers.CharField()
-    phonenumber = PhoneNumberField()
 
 
 @transaction.atomic
