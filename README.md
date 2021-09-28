@@ -53,6 +53,16 @@ python -m venv venv
 pip install -r requirements.txt
 ```
 
+Настройте переменные окружения:
+Программа использует Яндекс Геокодер для определения ближайшей стании метро/района, поэтому перед запуском рекомендуется получить API-key. В противном случае переменную YA_API_KEY можно оставить пустой.
+> Пример:
+```
+export SECRET_KEY='my_secret_key'
+export DEBUG=True
+export SERVERNAMES='localhost 127.0.0.1'
+export YA_API_KEY='ваш-API-ключ'
+```
+
 Создайте файл базы данных SQLite и отмигрируйте её следующей командой:
 
 ```sh
