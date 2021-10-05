@@ -9,7 +9,15 @@ from django.contrib.auth import views as auth_views
 
 
 from foodcartapp.models import Product, Restaurant
-from foodcartapp.models import Order
+from foodcartapp.models import Order, OrderItem, RestaurantMenuItem
+from django.db.models.query import Prefetch
+from geopy.distance import geodesic
+import requests
+from coordinates.models import Coordinates
+from foodcartapp.coordinates_api_functions import (
+    fetch_coordinates, parse_coordinates
+)
+from django.conf import settings
 
 
 class Login(forms.Form):
@@ -96,9 +104,101 @@ def view_restaurants(request):
     })
 
 
+def get_distance_for_address(order, restaurant):
+    rest_long, rest_lat = parse_coordinates(restaurant.restaurant.coordinates)
+
+    client_coordinates_objects = Coordinates.objects.filter(
+        address=order.address
+    )
+
+    if client_coordinates_objects.first():
+        coordinates = client_coordinates_objects.first()
+        client_long = coordinates.long
+        client_lat = coordinates.lat
+
+    else:
+        try:
+            client_long, client_lat = fetch_coordinates(
+                settings.YA_API_KEY,
+                order.address
+            )
+            Coordinates.objects.create(
+                address=order.address,
+                long=client_long,
+                lat=client_lat,
+            )
+        except (
+            requests.exceptions.ReadTimeout,
+            requests.exceptions.ConnectionError,
+            requests.exceptions.HTTPError
+        ):
+            return
+
+    return round(
+        (geodesic((rest_lat, rest_long), (client_lat, client_long)).km), 2
+    )
+
+
+def get_distance_for_order(order):
+
+    if order.restaurant:
+        return get_distance_for_address(order, order.restaurant)
+
+    avail_restaurants = order.get_available_restaurants_for_cart()
+
+    rest_distance = []
+
+    for restaurant in avail_restaurants:
+        distance = order.get_distance_for_address(order, restaurant)
+        rest_distance.append(
+            {
+                'name': restaurant.name,
+                'distance': distance
+            }
+        )
+    return sorted(rest_distance, key=lambda x: x['distance'])
+
+
 @user_passes_test(is_manager, login_url='restaurateur:login')
 def view_orders(request):
 
+    orders = Order.objects.annotate_with_price().select_related('restaurant') \
+        .prefetch_related(Prefetch(
+            'items', queryset=OrderItem.objects.select_related('product')
+        )).exclude(status='CLOSED').order_by('-id')
+    avail_restaurants = []
+
+    orders_list = []
+    for order in orders:
+
+        for item in order.items.all():
+            item_restaurants = []
+            menu_items = RestaurantMenuItem.objects.select_related(
+                'product'
+            ).filter(
+                product=item.product,
+                availability=True
+            ).select_related('restaurant')
+            for menu_item in menu_items:
+                item_restaurants.append(menu_item)
+
+            if not avail_restaurants:
+                avail_restaurants += item_restaurants
+            avail_restaurants = list(set(item_restaurants) & set(avail_restaurants))
+
+        rest_distance = []
+        for restaurant in avail_restaurants:
+            distance = get_distance_for_address(order, restaurant)
+            rest_distance.append(
+                {
+                    'name': restaurant.restaurant.name,
+                    'distance': distance
+                }
+            )
+
+        order.restaurants = sorted(rest_distance, key=lambda x: x['distance'])
+        orders_list.append(order)
+
     return render(request, template_name='order_items.html', context={
-        'order_items': Order.objects.not_processed_orders_with_price().order_by('-id')
+        'order_items': orders_list
     })

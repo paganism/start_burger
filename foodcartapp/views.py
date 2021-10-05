@@ -6,7 +6,6 @@ from rest_framework.response import Response
 
 from .models import Product
 from rest_framework import serializers
-from phonenumber_field.serializerfields import PhoneNumberField
 from django.http import JsonResponse
 from django.db import transaction
 
@@ -64,15 +63,10 @@ def product_list_api(request):
 
 
 class OrderItemSerializer(serializers.ModelSerializer):
-    
+
     class Meta:
         model = OrderItem
         fields = ['product', 'quantity']
-
-    product = serializers.PrimaryKeyRelatedField(
-        queryset=Product.objects.all()
-    )
-    quantity = serializers.IntegerField()
 
 
 class OrderSerializer(serializers.ModelSerializer):
@@ -80,8 +74,6 @@ class OrderSerializer(serializers.ModelSerializer):
     products = OrderItemSerializer(many=True, allow_empty=False)
     firstname = serializers.CharField(source='customer_first_name')
     lastname = serializers.CharField(source='customer_last_name')
-    address = serializers.CharField()
-    phonenumber = PhoneNumberField()
 
     class Meta:
         model = Order

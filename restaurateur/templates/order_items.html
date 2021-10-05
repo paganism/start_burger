@@ -39,7 +39,7 @@
           {% else %}
             <details>
               <summary>Доступные рестораны</summary>
-                {% for restaurant in item.get_distance_for_order %}
+                {% for restaurant in item.restaurants %}
                     {% if restaurant.distance %}
                       <p>{{restaurant.name}} - {{restaurant.distance}} км</p>
                     {% else %}

@@ -4,9 +4,10 @@ from phonenumber_field.modelfields import PhoneNumberField
 from django.db.models import Sum, F
 from django.utils import timezone
 from django.conf import settings
-from foodcartapp.coordinates_api_functions import fetch_coordinates, parse_coordinates
+from foodcartapp.coordinates_api_functions import (
+    fetch_coordinates, parse_coordinates
+)
 from geopy.distance import geodesic
-import json
 import requests
 from coordinates.models import Coordinates
 
@@ -133,13 +134,10 @@ class RestaurantMenuItem(models.Model):
 
 
 class OrderQuerySet(models.QuerySet):
-    def orders_with_price(self):
+    def annotate_with_price(self):
         return self.annotate(
             order_price=Sum(F('items__product__price') * F('items__quantity'))
         )
-
-    def not_processed_orders_with_price(self):
-        return self.orders_with_price().exclude(status='CLOSED')
 
 
 class Order(models.Model):
@@ -151,7 +149,7 @@ class Order(models.Model):
     PAYMENT_CHOICES = [
         ('NON_CACHE', 'Электронно'),
         ('CACHE', 'Наличностью'),
-        ('NOT_SET', 'Не задан'),
+        ('', ''),
     ]
     status = models.CharField(
         max_length=20,
@@ -163,9 +161,10 @@ class Order(models.Model):
     payment_method = models.CharField(
         max_length=20,
         choices=PAYMENT_CHOICES,
-        default='NOT_SET',
+        default='',
         verbose_name='Способ оплаты',
-        db_index=True
+        db_index=True,
+        blank=True
     )
     address = models.TextField(
         verbose_name='Адрес доставки'
@@ -243,9 +242,10 @@ class Order(models.Model):
             address=self.address
         )
 
-        if client_coordinates_objects.exists():
-            coordinates = client_coordinates_objects[0].coordinates
-            client_long, client_lat = parse_coordinates(coordinates)
+        if client_coordinates_objects.first():
+            coordinates = client_coordinates_objects.first()
+            client_long = coordinates.long
+            client_lat = coordinates.lat
 
         else:
             try:
@@ -255,15 +255,14 @@ class Order(models.Model):
                 )
                 Coordinates.objects.create(
                     address=self.address,
-                    coordinates=json.dumps(
-                        {'long': client_long, 'lat': client_lat}
-                    )
+                    long=client_long,
+                    lat=client_lat,
                 )
-            except requests.exceptions.ReadTimeout:
-                return
-            except requests.exceptions.ConnectionError:
-                return
-            except requests.exceptions.HTTPError:
+            except (
+                requests.exceptions.ReadTimeout,
+                requests.exceptions.ConnectionError,
+                requests.exceptions.HTTPError
+            ):
                 return
 
         return round(

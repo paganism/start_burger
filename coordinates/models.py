@@ -8,12 +8,25 @@ class Coordinates(models.Model):
         verbose_name='Адрес доставки',
         unique=True
     )
-    coordinates = models.JSONField(verbose_name='Координаты')
-    fetched_from_api_at = models.DateTimeField(default=timezone.now)
+    lat = models.DecimalField(
+        max_digits=11,
+        decimal_places=8,
+        verbose_name='широта',
+    )
+    long = models.DecimalField(
+        max_digits=11,
+        decimal_places=8,
+        verbose_name='долгота',
+    )
+    fetched_from_api_at = models.DateTimeField(
+    default=timezone.now,
+    db_index=True
+    )
 
 
     class Meta:
         verbose_name = 'Координаты'
         verbose_name_plural = 'Координаты'
 
-    def __str__(self): return self.address
+    def __str__(self):
+        return self.address
