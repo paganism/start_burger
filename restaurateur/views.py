@@ -18,6 +18,7 @@ from foodcartapp.coordinates_api_functions import (
     fetch_coordinates, parse_coordinates
 )
 from django.conf import settings
+from django.db.models import OuterRef, Subquery
 
 
 class Login(forms.Form):
@@ -105,27 +106,18 @@ def view_restaurants(request):
 
 
 def get_distance_for_address(order, restaurant):
-    rest_long, rest_lat = parse_coordinates(restaurant.restaurant.coordinates)
+    rest_long, rest_lat = parse_coordinates(restaurant.coordinates)
 
-    client_coordinates_objects = Coordinates.objects.filter(
-        address=order.address
-    )
-
-    if client_coordinates_objects.first():
-        coordinates = client_coordinates_objects.first()
-        client_long = coordinates.long
-        client_lat = coordinates.lat
-
-    else:
+    if not (order.long and order.lat):
         try:
-            client_long, client_lat = fetch_coordinates(
+            order.long, order.lat = fetch_coordinates(
                 settings.YA_API_KEY,
                 order.address
             )
             Coordinates.objects.create(
                 address=order.address,
-                long=client_long,
-                lat=client_lat,
+                long=order.long,
+                lat=order.lat,
             )
         except (
             requests.exceptions.ReadTimeout,
@@ -135,70 +127,57 @@ def get_distance_for_address(order, restaurant):
             return
 
     return round(
-        (geodesic((rest_lat, rest_long), (client_lat, client_long)).km), 2
+        (geodesic((rest_lat, rest_long), (order.lat, order.long)).km), 2
     )
-
-
-def get_distance_for_order(order):
-
-    if order.restaurant:
-        return get_distance_for_address(order, order.restaurant)
-
-    avail_restaurants = order.get_available_restaurants_for_cart()
-
-    rest_distance = []
-
-    for restaurant in avail_restaurants:
-        distance = order.get_distance_for_address(order, restaurant)
-        rest_distance.append(
-            {
-                'name': restaurant.name,
-                'distance': distance
-            }
-        )
-    return sorted(rest_distance, key=lambda x: x['distance'])
 
 
 @user_passes_test(is_manager, login_url='restaurateur:login')
 def view_orders(request):
 
+    subquery_long = Subquery(Coordinates.objects.filter(address=OuterRef('address')).values('long'))
+    subquery_lat = Subquery(Coordinates.objects.filter(address=OuterRef('address')).values('lat'))
+
     orders = Order.objects.annotate_with_price().select_related('restaurant') \
         .prefetch_related(Prefetch(
             'items', queryset=OrderItem.objects.select_related('product')
-        )).exclude(status='CLOSED').order_by('-id')
-    avail_restaurants = []
+        )).exclude(status='CLOSED') \
+        .order_by('-id')
+
+    orders_with_coord = orders.annotate(long=subquery_long).annotate(lat=subquery_lat)
 
     orders_list = []
-    for order in orders:
-
+    for order in orders_with_coord:
+        avail_restaurants = []
+        
         for item in order.items.all():
             item_restaurants = []
-            menu_items = RestaurantMenuItem.objects.select_related(
-                'product'
-            ).filter(
+
+            menu_items = RestaurantMenuItem.objects.select_related('product') \
+                .filter(
                 product=item.product,
                 availability=True
             ).select_related('restaurant')
             for menu_item in menu_items:
-                item_restaurants.append(menu_item)
-
+                item_restaurants.append(menu_item.restaurant)
             if not avail_restaurants:
                 avail_restaurants += item_restaurants
-            avail_restaurants = list(set(item_restaurants) & set(avail_restaurants))
 
+            avail_restaurants = list(set(item_restaurants) & set(avail_restaurants))
+        
         rest_distance = []
         for restaurant in avail_restaurants:
             distance = get_distance_for_address(order, restaurant)
             rest_distance.append(
                 {
-                    'name': restaurant.restaurant.name,
-                    'distance': distance
+                    'name': restaurant.name,
+                    'distance': distance,
                 }
             )
 
         order.restaurants = sorted(rest_distance, key=lambda x: x['distance'])
         orders_list.append(order)
 
+        
     return render(request, template_name='order_items.html', context={
         'order_items': orders_list
     })
