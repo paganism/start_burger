@@ -1,15 +1,10 @@
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
 from phonenumber_field.modelfields import PhoneNumberField
-from django.db.models import Sum, F
+from django.db.models import Sum, F, OuterRef, Subquery
 from django.utils import timezone
-from django.conf import settings
-from foodcartapp.coordinates_api_functions import (
-    fetch_coordinates, parse_coordinates
-)
-from geopy.distance import geodesic
-import requests
 from coordinates.models import Coordinates
+from django.db.models.query import Prefetch
 
 
 class Restaurant(models.Model):
@@ -138,6 +133,27 @@ class OrderQuerySet(models.QuerySet):
         return self.annotate(
             order_price=Sum(F('items__product__price') * F('items__quantity'))
         )
+
+    def get_noprocessed_orders(self):
+        subquery_long = Subquery(
+            Coordinates.objects.filter(
+                address=OuterRef('address')
+            ).values('long')
+        )
+        subquery_lat = Subquery(
+            Coordinates.objects.filter(
+                address=OuterRef('address')
+            ).values('lat')
+        )
+
+        orders = self.annotate_with_price().select_related('restaurant') \
+            .prefetch_related(Prefetch(
+                'items', queryset=OrderItem.objects.select_related('product')
+            )).exclude(status='CLOSED')
+
+        orders_with_coord = orders.annotate(long=subquery_long) \
+            .annotate(lat=subquery_lat)
+        return orders_with_coord
 
 
 class Order(models.Model):

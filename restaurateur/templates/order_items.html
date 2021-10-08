@@ -27,10 +27,10 @@
     {% for item in order_items %}
       <tr>
         <td>{{item.id}}</td>
-        <td>{{item.get_status_display}}</td>
-        <td>{{item.get_payment_method_display}}</td>
+        <td>{{item.status}}</td>
+        <td>{{item.payment_method}}</td>
         <td>{{item.order_price|floatformat:-2}} руб.</td>
-        <td>{{item.customer_first_name}}</td>
+        <td>{{item.customer_fullname}}</td>
         <td>{{item.phonenumber}}</td>
         <td>{{item.address}}</td>
         <td>

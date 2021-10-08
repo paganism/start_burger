@@ -9,8 +9,7 @@ from django.contrib.auth import views as auth_views
 
 
 from foodcartapp.models import Product, Restaurant
-from foodcartapp.models import Order, OrderItem, RestaurantMenuItem
-from django.db.models.query import Prefetch
+from foodcartapp.models import Order, RestaurantMenuItem
 from geopy.distance import geodesic
 import requests
 from coordinates.models import Coordinates
@@ -18,7 +17,6 @@ from foodcartapp.coordinates_api_functions import (
     fetch_coordinates, parse_coordinates
 )
 from django.conf import settings
-from django.db.models import OuterRef, Subquery
 
 
 class Login(forms.Form):
@@ -131,53 +129,64 @@ def get_distance_for_address(order, restaurant):
     )
 
 
+def serialize_order(order, menu_list):
+    avail_restaurants = []
+
+    for item in order.items.all():
+        item_restaurants = []
+
+        for menu_item in menu_list:
+            if menu_item.product == item.product:
+                item_restaurants.append(menu_item.restaurant)
+
+        if not avail_restaurants:
+            avail_restaurants += item_restaurants
+
+        avail_restaurants = list(
+            set(item_restaurants) & set(avail_restaurants)
+        )
+
+    rest_distance = []
+
+    for restaurant in avail_restaurants:
+        distance = get_distance_for_address(order, restaurant)
+        rest_distance.append(
+            {
+                'name': restaurant.name,
+                'distance': distance,
+            }
+        )
+
+    order.restaurants = sorted(rest_distance, key=lambda x: x['distance'])
+
+    return {
+        'id': order.id,
+        'status': order.get_status_display(),
+        'assigned_restaurant': order.restaurant,
+        'restaurants': order.restaurants,
+        'payment_method': order.get_payment_method_display(),
+        'price': order.order_price,
+        'customer_fullname': f'{order.customer_first_name} \
+            {order.customer_last_name}',
+        'phonenumber': order.phonenumber,
+        'comment': order.comment,
+        'address': order.address
+    }
+
+
 @user_passes_test(is_manager, login_url='restaurateur:login')
 def view_orders(request):
 
-    subquery_long = Subquery(Coordinates.objects.filter(address=OuterRef('address')).values('long'))
-    subquery_lat = Subquery(Coordinates.objects.filter(address=OuterRef('address')).values('lat'))
+    orders_with_coord = Order.objects.get_noprocessed_orders().order_by('-id')
 
-    orders = Order.objects.annotate_with_price().select_related('restaurant') \
-        .prefetch_related(Prefetch(
-            'items', queryset=OrderItem.objects.select_related('product')
-        )).exclude(status='CLOSED') \
-        .order_by('-id')
+    menu_list = list(
+        RestaurantMenuItem.objects.select_related('product')
+        .filter(availability=True).select_related('restaurant')
+    )
 
-    orders_with_coord = orders.annotate(long=subquery_long).annotate(lat=subquery_lat)
-
-    orders_list = []
-    for order in orders_with_coord:
-        avail_restaurants = []
-        
-        for item in order.items.all():
-            item_restaurants = []
-
-            menu_items = RestaurantMenuItem.objects.select_related('product') \
-                .filter(
-                product=item.product,
-                availability=True
-            ).select_related('restaurant')
-            for menu_item in menu_items:
-                item_restaurants.append(menu_item.restaurant)
-            if not avail_restaurants:
-                avail_restaurants += item_restaurants
-
-            avail_restaurants = list(set(item_restaurants) & set(avail_restaurants))
-        
-        rest_distance = []
-        for restaurant in avail_restaurants:
-            distance = get_distance_for_address(order, restaurant)
-            rest_distance.append(
-                {
-                    'name': restaurant.name,
-                    'distance': distance,
-                }
-            )
-
-        order.restaurants = sorted(rest_distance, key=lambda x: x['distance'])
-        orders_list.append(order)
-
-        
-    return render(request, template_name='order_items.html', context={
-        'order_items': orders_list
-    })
+    context = {
+        'order_items': [
+            serialize_order(order, menu_list) for order in orders_with_coord
+        ]
+    }
+    return render(request, template_name='order_items.html', context=context)
