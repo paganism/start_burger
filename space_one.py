@@ -3,31 +3,9 @@ import curses
 import asyncio
 import random
 from fire_animation import fire
-from curses_tools import draw_frame
+from curses_tools import draw_frame, read_controls
 import os
 from itertools import cycle
-
-
-# def draw(canvas):
-#     row, column = (5, 20)
-#     while True:
-#         canvas.border()
-
-#         canvas.addstr(row, column, '*', curses.A_DIM)
-#         canvas.refresh()    
-#         time.sleep(2)
-
-#         canvas.addstr(row, column, '*')
-#         canvas.refresh()    
-#         time.sleep(0.3)
-
-#         canvas.addstr(row, column, '*', curses.A_BOLD)
-#         canvas.refresh()
-#         time.sleep(0.5)
-
-#         canvas.addstr(row, column, '*')
-#         canvas.refresh()    
-#         time.sleep(0.3)
 
 
 class EventLoopCommand():
@@ -75,13 +53,19 @@ async def animate_spaceship(canvas, row, column, frames):
 
     while True:
         for frame in frames:
+
+            row_dir, col_dir, _ = read_controls(canvas)
+
+            row += row_dir
+            column += col_dir
+
             draw_frame(canvas, round(row), round(column), frame)
             await asyncio.sleep(0)
             draw_frame(canvas, round(row), round(column), frame, negative=True)
 
 
 def draw(canvas):
-    
+    canvas.nodelay(True)
     rocket_frame_1 = read_file(os.path.join(BASE_DIR, 'frames/rocket_frame_1.txt'))
     rocket_frame_2 = read_file(os.path.join(BASE_DIR, 'frames/rocket_frame_2.txt'))
     rocket_frames = [rocket_frame_1, rocket_frame_2]
@@ -103,7 +87,7 @@ def draw(canvas):
                 canvas.border()
                 
                 canvas.refresh()
-                curses.curs_set(False)
+                curses.curs_set(False)                
             except StopIteration:
                 coroutines.remove(coroutine)
         if len(coroutines) == 0:
@@ -114,7 +98,4 @@ if __name__ == '__main__':
     
     curses.update_lines_cols()
     curses.wrapper(draw)
-    # curses.curs_set(False)
-    
-
 
