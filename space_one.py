@@ -3,7 +3,7 @@ import curses
 import asyncio
 import random
 from fire_animation import fire
-from curses_tools import draw_frame, read_controls
+from curses_tools import draw_frame, read_controls, get_frame_size
 import os
 from itertools import cycle
 
@@ -50,6 +50,8 @@ def read_file(path):
 
 
 async def animate_spaceship(canvas, row, column, frames):
+
+    frame_size = get_frame_size(frames[0])
 
     while True:
         for frame in frames:
