@@ -5,27 +5,16 @@ import random
 from fire_animation import fire
 from curses_tools import draw_frame, read_controls, get_frame_size
 import os
-from itertools import cycle
 
-
-class EventLoopCommand():
-
-    def __await__(self):
-        return (yield self)
-
-
-class Sleep(EventLoopCommand):
-
-    def __init__(self, seconds):
-        self.seconds = seconds
 
 TIC_TIMEOUT = 0.1
 STARS = '+*.:'
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+BORDER = 1
 
 
 async def blink(canvas, row, column, symbol='*'):
-    
+
     while True:
         canvas.addstr(row, column, symbol, curses.A_DIM)
         for i in range(random.randint(1, 19)):
@@ -49,9 +38,9 @@ def read_file(path):
         return file.read()
 
 
-async def animate_spaceship(canvas, row, column, frames):
+async def animate_spaceship(canvas, row, column, frames, max_row, max_column):
 
-    frame_size = get_frame_size(frames[0])
+    frame_rows, frame_cols = get_frame_size(frames[0])
 
     while True:
         for frame in frames:
@@ -61,6 +50,15 @@ async def animate_spaceship(canvas, row, column, frames):
             row += row_dir
             column += col_dir
 
+            if row <= 0:
+                row = 1
+            if row + frame_rows >= max_row:
+                row = max_row - frame_rows - BORDER
+            if column <= 0:
+                column = 1
+            if column + frame_cols >= max_column:
+                column = max_column - frame_cols - BORDER
+
             draw_frame(canvas, round(row), round(column), frame)
             await asyncio.sleep(0)
             draw_frame(canvas, round(row), round(column), frame, negative=True)
@@ -68,36 +66,61 @@ async def animate_spaceship(canvas, row, column, frames):
 
 def draw(canvas):
     canvas.nodelay(True)
-    rocket_frame_1 = read_file(os.path.join(BASE_DIR, 'frames/rocket_frame_1.txt'))
-    rocket_frame_2 = read_file(os.path.join(BASE_DIR, 'frames/rocket_frame_2.txt'))
+    rocket_frame_1 = read_file(
+        os.path.join(BASE_DIR, 'frames/rocket_frame_1.txt')
+    )
+    rocket_frame_2 = read_file(
+        os.path.join(BASE_DIR, 'frames/rocket_frame_2.txt')
+    )
     rocket_frames = [rocket_frame_1, rocket_frame_2]
     max_row, max_column = canvas.getmaxyx()
-    coroutines = [blink(canvas, random.randint(1, max_row-2), random.randint(1, max_column-2), random.choice(STARS)) for i in range(random.randint(1, max_column))]
+    max_star_row = max_row - 2
+    max_star_column = max_column - 2
 
-    gun_fire = fire(canvas, max_row//2, max_column//2 )
+    coroutines = [
+        blink(
+            canvas,
+            random.randint(1, max_star_row),
+            random.randint(1, max_star_column),
+            random.choice(STARS)
+        ) for i in range(random.randint(1, max_column))
+    ]
+
+    field_center_row = max_row//2
+    field_center_column = max_column//2
+
+    gun_fire = fire(canvas, field_center_row, field_center_column)
     coroutines.append(gun_fire)
 
-    spaceship = animate_spaceship(canvas, max_row//2, max_column//2-2, rocket_frames)
-    coroutines.append(spaceship)
+    spaceship_center_column = field_center_column-2
 
+    spaceship = animate_spaceship(
+        canvas,
+        field_center_row,
+        spaceship_center_column,
+        rocket_frames,
+        max_row,
+        max_column
+    )
+    coroutines.append(spaceship)
     while True:
-        
+
         for coroutine in coroutines.copy():
-            
+
             try:
                 coroutine.send(None)
                 canvas.border()
-                
+
                 canvas.refresh()
-                curses.curs_set(False)                
+                curses.curs_set(False)
             except StopIteration:
                 coroutines.remove(coroutine)
         if len(coroutines) == 0:
             continue
         time.sleep(TIC_TIMEOUT)
-    
+
+
 if __name__ == '__main__':
-    
+
     curses.update_lines_cols()
     curses.wrapper(draw)
-
