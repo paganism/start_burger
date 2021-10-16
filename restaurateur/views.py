@@ -126,7 +126,9 @@ def get_distance_for_address(order, restaurant):
             return
 
     return round(
-        (geodesic((restaurant.lat, restaurant.long), (order.lat, order.long)).km), 2
+        (geodesic(
+            (restaurant.lat, restaurant.long), (order.lat, order.long)
+        ).km), 2
     )
 
 
