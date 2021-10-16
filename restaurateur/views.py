@@ -14,9 +14,11 @@ from geopy.distance import geodesic
 import requests
 from coordinates.models import Coordinates
 from foodcartapp.coordinates_api_functions import (
-    fetch_coordinates, parse_coordinates
+    fetch_coordinates
 )
 from django.conf import settings
+from django.db.models.query import Prefetch
+from foodcartapp.models import OrderItem
 
 
 class Login(forms.Form):
@@ -104,7 +106,6 @@ def view_restaurants(request):
 
 
 def get_distance_for_address(order, restaurant):
-    rest_long, rest_lat = parse_coordinates(restaurant.coordinates)
 
     if not (order.long and order.lat):
         try:
@@ -125,7 +126,7 @@ def get_distance_for_address(order, restaurant):
             return
 
     return round(
-        (geodesic((rest_lat, rest_long), (order.lat, order.long)).km), 2
+        (geodesic((restaurant.lat, restaurant.long), (order.lat, order.long)).km), 2
     )
 
 
@@ -140,7 +141,7 @@ def serialize_order(order, menu_list):
                 item_restaurants.append(menu_item.restaurant)
 
         if not avail_restaurants:
-            avail_restaurants += item_restaurants
+            avail_restaurants = item_restaurants
 
         avail_restaurants = list(
             set(item_restaurants) & set(avail_restaurants)
@@ -177,11 +178,16 @@ def serialize_order(order, menu_list):
 @user_passes_test(is_manager, login_url='restaurateur:login')
 def view_orders(request):
 
-    orders_with_coord = Order.objects.get_noprocessed_orders().order_by('-id')
+    orders_with_coord = Order.objects.get_noprocessed_orders() \
+        .annotate_with_price() \
+        .annotate_with_coords().select_related('restaurant') \
+        .prefetch_related(Prefetch(
+            'items', queryset=OrderItem.objects.select_related('product')
+            )).order_by('-called_at', '-id')
 
     menu_list = list(
-        RestaurantMenuItem.objects.select_related('product')
-        .filter(availability=True).select_related('restaurant')
+        RestaurantMenuItem.objects.select_related('product', 'restaurant')
+        .filter(availability=True)
     )
 
     context = {

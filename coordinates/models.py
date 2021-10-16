@@ -19,8 +19,8 @@ class Coordinates(models.Model):
         verbose_name='долгота',
     )
     fetched_from_api_at = models.DateTimeField(
-    default=timezone.now,
-    db_index=True
+        default=timezone.now,
+        db_index=True
     )
 
 

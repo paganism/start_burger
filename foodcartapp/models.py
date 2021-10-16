@@ -4,7 +4,6 @@ from phonenumber_field.modelfields import PhoneNumberField
 from django.db.models import Sum, F, OuterRef, Subquery
 from django.utils import timezone
 from coordinates.models import Coordinates
-from django.db.models.query import Prefetch
 
 
 class Restaurant(models.Model):
@@ -22,7 +21,16 @@ class Restaurant(models.Model):
         max_length=50,
         blank=True,
     )
-    coordinates = models.JSONField(verbose_name='Координаты')
+    lat = models.DecimalField(
+        max_digits=11,
+        decimal_places=8,
+        verbose_name='широта',
+    )
+    long = models.DecimalField(
+        max_digits=11,
+        decimal_places=8,
+        verbose_name='долгота',
+    )
 
     class Meta:
         verbose_name = 'ресторан'
@@ -134,7 +142,7 @@ class OrderQuerySet(models.QuerySet):
             order_price=Sum(F('items__product__price') * F('items__quantity'))
         )
 
-    def get_noprocessed_orders(self):
+    def annotate_with_coords(self):
         subquery_long = Subquery(
             Coordinates.objects.filter(
                 address=OuterRef('address')
@@ -146,14 +154,13 @@ class OrderQuerySet(models.QuerySet):
             ).values('lat')
         )
 
-        orders = self.annotate_with_price().select_related('restaurant') \
-            .prefetch_related(Prefetch(
-                'items', queryset=OrderItem.objects.select_related('product')
-            )).exclude(status='CLOSED')
-
-        orders_with_coord = orders.annotate(long=subquery_long) \
+        orders_with_coord = self.annotate(long=subquery_long) \
             .annotate(lat=subquery_lat)
         return orders_with_coord
+
+    def get_noprocessed_orders(self):
+        orders = self.exclude(status='CLOSED')
+        return orders
 
 
 class Order(models.Model):
