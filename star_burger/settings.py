@@ -3,6 +3,7 @@ import os
 import dj_database_url
 
 from environs import Env
+from git import Repo
 
 
 env = Env()
@@ -41,6 +42,8 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'debug_toolbar.middleware.DebugToolbarMiddleware',
+    'rollbar.contrib.django.middleware.RollbarNotifierMiddleware',
+    'rollbar.contrib.django.middleware.RollbarNotifierMiddlewareExcluding404',
 ]
 
 ROOT_URLCONF = 'star_burger.urls'
@@ -143,3 +146,16 @@ REST_FRAMEWORK = {
 }
 
 YA_API_KEY = env('YA_API_KEY', '')
+
+# rollbar settings
+local_repo = Repo(path=BASE_DIR)
+local_branch = local_repo.active_branch.name
+
+ROLLBAR = {
+    'access_token': env('ROLLBAR_TOKEN', 'default'),
+    'environment': env('ROLLBAR_ENV', 'default'),
+    'root': BASE_DIR,
+    'branch': local_branch,
+}
+import rollbar
+rollbar.init(**ROLLBAR)

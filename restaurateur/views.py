@@ -19,6 +19,7 @@ from foodcartapp.coordinates_api_functions import (
 from django.conf import settings
 from django.db.models.query import Prefetch
 from foodcartapp.models import OrderItem
+import rollbar
 
 
 class Login(forms.Form):
@@ -123,6 +124,7 @@ def get_distance_for_address(order, restaurant):
             requests.exceptions.ConnectionError,
             requests.exceptions.HTTPError
         ):
+            rollbar.report_message("Can't get coordinates", 'warning')
             return
 
     return round(
