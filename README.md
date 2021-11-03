@@ -52,6 +52,8 @@ python -m venv venv
 ```sh
 pip install -r requirements.txt
 ```
+Настройте подключение к postgres \ установите postgres
+Инструкция по установке [тут](https://www.digitalocean.com/community/tutorials/how-to-use-postgresql-with-your-django-application-on-ubuntu-14-04)
 
 Настройте переменные окружения:
 Программа использует Яндекс Геокодер для определения ближайшей стании метро/района, поэтому перед запуском рекомендуется получить API-key. В противном случае переменную YA_API_KEY можно оставить пустой.
@@ -61,9 +63,17 @@ export SECRET_KEY='my_secret_key'
 export DEBUG=True
 export SERVERNAMES='localhost 127.0.0.1'
 export YA_API_KEY='ваш-API-ключ'
+export ROLLBAR_TOKEN='rollbar token'
+export ROLLBAR_ENV='development'
+export DB_USER='user'
+export DB_PASSWORD='password'
+export DB_NAME='dbname'
+export DB_HOST='localhost'
+export DB_PORT='5432'
 ```
 
-Создайте файл базы данных SQLite и отмигрируйте её следующей командой:
+
+Отмигрируйте базу данных следующей командой:
 
 ```sh
 python manage.py migrate
@@ -155,6 +165,11 @@ parcel build bundles-src/index.js --dist-dir bundles --public-url="./"
 - `ALLOWED_HOSTS` — [см. документацию Django](https://docs.djangoproject.com/en/3.1/ref/settings/#allowed-hosts)
 - `ROLLBAR_TOKEN` - токен rollbar (выдается при регистрации на [rollbar.com](rollbar.com))
 - `ROLLBAR_ENV` - окружение rollbar для фильтрации логов
+- `DB_USER` - пользователь БД
+- `DB_PASSWORD` - пароль для пользователя в БД
+- `DB_NAME` - имя базы данных
+- `DB_HOST` - имя\ip-адрес сервера, где развёрнута БД
+- `DB_PORT` - порт, на котором работает БД на сервере
 
 ## Цели проекта
 

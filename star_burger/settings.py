@@ -4,6 +4,7 @@ import dj_database_url
 
 from environs import Env
 from git import Repo
+import dj_database_url
 
 
 env = Env()
@@ -87,16 +88,16 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 MEDIA_URL = '/media/'
 
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'starburger',
-        'USER': 'burger',
-        'PASSWORD': 'password',
-        'HOST': 'localhost',
-        'PORT': '',
-    }
-}
+# DB settings
+DATABASES = {}
+DB_USER = env('DB_USER')
+DB_PASSWORD = env('DB_PASSWORD')
+DB_NAME = env('DB_NAME')
+DB_HOST = env('DB_HOST', 'localhost')
+DB_PORT = env('DB_PORT', '5432')
+
+DATABASES['default'] = dj_database_url.parse(f'postgres://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}', conn_max_age=600)
+
 
 AUTH_PASSWORD_VALIDATORS = [
     {
