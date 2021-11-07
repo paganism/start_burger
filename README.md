@@ -171,6 +171,55 @@ parcel build bundles-src/index.js --dist-dir bundles --public-url="./"
 - `DB_HOST` - имя\ip-адрес сервера, где развёрнута БД
 - `DB_PORT` - порт, на котором работает БД на сервере
 
+
+## Инструкция по деплою:
+- Зайти на сервер
+- Создать (если ещё нет) исполняемый файл с именем deploy_starburger.sh
+- Запустить файл deploy_starburger.sh
+
+Файл включает в себя следующий код:
+```
+#!/bin/bash
+logfile="/var/log/starburger.log"
+export BASE_DIR=/opt/start_burger/
+
+exec 2>>"$logfile"
+
+function log()
+{
+    TIME=`date +'%Y/%m/%d %H:%M:%S'`
+    echo "$TIME - $@" >> "$logfile"
+}
+
+#### processing ####
+
+log "set up environment"
+cd $BASE_DIR;
+source venv/bin/activate;
+
+log "fetch new code"
+git pull;
+
+log "process python part"
+pip3 install -r requirements.txt;
+
+python3 manage.py collectstatic --noinput;
+python3 manage.py migrate;
+
+log "build js part"
+npm install --production
+parcel build bundles-src/index.js --dist-dir bundles --public-url="./"
+
+log "reload/restart systemd services"
+systemctl restart starburger_gunicorn;
+systemctl reload nginx;
+
+log "deploy is completed"
+echo "Deploy is completed"
+
+```
+
+
 ## Цели проекта
 
 Код написан в учебных целях — это урок в курсе по Python и веб-разработке на сайте [Devman](https://dvmn.org). За основу был взят код проекта [FoodCart](https://github.com/Saibharath79/FoodCart).
