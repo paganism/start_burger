@@ -292,6 +292,12 @@ class App extends Component {
 
         <div className="container-fluid">
           <div className="row" style={{marginBottom:"50px"}}>
+            <div>
+            <center>
+                <h2>Настоящий сайт сделан только для обучающих целей. Цены и прочая информация не имеют реальной силы.</h2>
+                <hr/>
+              </center>
+              </div>
             <div className="col-md-3  col-lg-3"></div>
             <div className="col-md-6 col-sm-12 col-lg-6 mt-5" style={{marginTop: '50px'}}>
               <div className="input-group">
