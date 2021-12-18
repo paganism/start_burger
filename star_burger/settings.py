@@ -35,6 +35,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'rollbar.contrib.django.middleware.RollbarNotifierMiddlewareOnly404',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -90,14 +91,8 @@ MEDIA_URL = '/media/'
 
 # DB settings
 DATABASES = {}
-DB_USER = env('DB_USER')
-DB_PASSWORD = env('DB_PASSWORD')
-DB_NAME = env('DB_NAME')
-DB_HOST = env('DB_HOST', 'localhost')
-DB_PORT = env('DB_PORT', '5432')
-
-DATABASES['default'] = dj_database_url.parse(f'postgres://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}', conn_max_age=600)
-
+DB_URL = os.getenv('DB_URL')
+DATABASES['default'] = dj_database_url.parse(DB_URL, conn_max_age=600)
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -160,7 +155,7 @@ local_branch = local_repo.active_branch.name
 
 ROLLBAR = {
     'access_token': env('ROLLBAR_TOKEN', 'default'),
-    'environment': env('ROLLBAR_ENV', 'default'),
+    'environment': 'development' if DEBUG else 'production',
     'root': BASE_DIR,
     'branch': local_branch,
 }
