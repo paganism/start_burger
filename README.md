@@ -175,7 +175,7 @@ parcel build bundles-src/index.js --dist-dir bundles --public-url="./"
 ## Инструкция по деплою:
 - Зайти на сервер:
     - домен: it-baldhead.ru
-    - ip: 31.184.253.248
+    - ip: 5.101.51.49
     - username: root
 - Создать (если ещё нет) исполняемый файл /opt/deploy_starburger.sh
 - Запустить файл deploy_starburger.sh
